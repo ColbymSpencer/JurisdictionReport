@@ -11,9 +11,12 @@ library(tidyverse)
 library(readxl)
 jr_raw <- read_excel("C:/Users/Spencer_C/Desktop/Jurisdiction Report Master Spreadsheet.xlsx", sheet = 1, range = 'A1:O222')
 
-park_inception_raw <- read_excel("C:/Users/Spencer_C/Desktop/Jurisdiction Report Master Spreadsheet.xlsx", sheet = 2)
-```
+#park inception
+park_inception_raw <- read_excel("C:/Users/Spencer_C/Desktop/Jurisdiction Report Master Spreadsheet.xlsx", sheet = 5) 
 
+```
+Fix list:
+-   jr: some entries for owner contain a list of owners instead of two columns
 ```{r clean}
 park_inception <- park_inception_raw |>
   janitor::clean_names() |>
@@ -33,7 +36,7 @@ jr <- jr_raw |>
 
 ```
 
-```{r colorCodes}
+```{r color_codes}
 # parks with multiple owners
 jr |>
   filter(owner_count > 1)
@@ -51,10 +54,17 @@ jr |>
   count(owner_count)
 ```
 
-```{r BOT_Owned}
+```{r bot_owned}
 # sites that are only owned by BTIITF, no multi-owner
-jr |>
+bot_owned <- jr |>
   filter(owner == 'BTIITF', owner_count == 1) |>
+    select(site_name, inception, district, total_acreage, owner, drp_interest, expiration_date, classification, public_access_status) 
+```
+
+Joint owned are parks owned by a single owner that is not the BOT or parks with multiple owners. It does not include trails or walkways
+```{r joint_owned}
+joint_owned <- jr |>
+  filter(grepl(',', owner) | owner_count > 1 & !classification %in% c('Trail', 'Walkway')) |>
     select(site_name, inception, district, total_acreage, owner, drp_interest, expiration_date, classification, public_access_status) 
 ```
 
