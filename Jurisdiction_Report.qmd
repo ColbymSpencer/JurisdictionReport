@@ -1,0 +1,60 @@
+---
+title: "Jurisdiction_Report"
+format: html
+editor: visual
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup}
+library(tidyverse)
+library(readxl)
+jr_raw <- read_excel("C:/Users/Spencer_C/Desktop/Jurisdiction Report Master Spreadsheet.xlsx", sheet = 1, range = 'A1:O222')
+
+park_inception_raw <- read_excel("C:/Users/Spencer_C/Desktop/Jurisdiction Report Master Spreadsheet.xlsx", sheet = 2)
+```
+
+```{r clean}
+park_inception <- park_inception_raw |>
+  janitor::clean_names() |>
+  select(unit_name, inception) |>
+  filter(!is.na(unit_name)) |>
+  mutate(unit_name = str_replace_all(unit_name, "\r\n" ," "), #replace newline characters
+         unit_name = str_squish(unit_name)) #remove double spaces
+
+jr <- jr_raw |>
+  janitor::clean_names() |>
+  #owner_count 
+  add_count(site_name, owner) |>
+  add_count(site_name, n, name = 'owner_count') |>
+  select(-n) |>
+  #inception
+  left_join(park_inception, join_by(site_name == unit_name))
+
+```
+
+```{r colorCodes}
+# parks with multiple owners
+jr |>
+  filter(owner_count > 1)
+# parks with one owner
+jr |>
+  filter(owner_count == 1)
+# state greenways and trails
+jr |>
+  filter(classification %in% c('Greenway','Trail'))
+```
+
+```{r }
+jr |>
+  filter(!is.na(inception)) |>
+  count(owner_count)
+```
+
+```{r BOT_Owned}
+# sites that are only owned by BTIITF, no multi-owner
+jr |>
+  filter(owner == 'BTIITF', owner_count == 1) |>
+    select(site_name, inception, district, total_acreage, owner, drp_interest, expiration_date, classification, public_access_status) 
+```
+
