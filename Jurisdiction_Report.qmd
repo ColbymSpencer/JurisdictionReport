@@ -9,14 +9,15 @@ editor_options:
 ```{r setup}
 library(tidyverse)
 library(readxl)
-jr_raw <- read_excel("C:/Users/Spencer_C/Desktop/Jurisdiction Report Master Spreadsheet.xlsx", sheet = 1, range = 'A1:O222')
+jr_raw <- read_excel("Jurisdiction Report Master Spreadsheet.xlsx", sheet = 1, range = 'A1:O222')
 
 #park inception
-park_inception_raw <- read_excel("C:/Users/Spencer_C/Desktop/Jurisdiction Report Master Spreadsheet.xlsx", sheet = 5) 
+park_inception_raw <- read_excel("Jurisdiction Report Master Spreadsheet.xlsx", sheet = 5) 
 
 ```
-Fix list:
--   jr: some entries for owner contain a list of owners instead of two columns
+
+Fix list: - jr: some entries for owner contain a list of owners instead of two columns
+
 ```{r clean}
 park_inception <- park_inception_raw |>
   janitor::clean_names() |>
@@ -54,17 +55,47 @@ jr |>
   count(owner_count)
 ```
 
+This "BOT_Owned State Parks" table is nearly identical to the real one. The only exceptions are Cedar Key Scrub State Reserve being in the real one despite multiple owners, and San Pedro Underwater Archaeological Preserve State Park not being in the real one for unknown reasons
 ```{r bot_owned}
 # sites that are only owned by BTIITF, no multi-owner
 bot_owned <- jr |>
-  filter(owner == 'BTIITF', owner_count == 1) |>
-    select(site_name, inception, district, total_acreage, owner, drp_interest, expiration_date, classification, public_access_status) 
+  filter(owner == 'BTIITF', owner_count == 1, !classification %in% c('Trail', 'Greenway')) |>
+  # make the table look identical to real one
+  mutate(number = row_number()) |>
+  select(number, 'unit_name' = site_name, inception, district, county, 'acreage' = total_acreage, owner, drp_interest, lease_number, expiration_date, 'unit_calssification' = classification, public_access_status)|>
+  mutate(lease_number = as.double(lease_number))
+```
+
+```{r check if identical}
+boc <- read_excel("Jurisdiction Report Master Spreadsheet.xlsx", sheet = 2) |>
+  janitor::clean_names() |>
+  filter(!is.na(unit_name))  |>
+  #replace newline characters, remove doublespaces
+  mutate(unit_classification = str_replace_all(unit_classification, "\r\n" ," "), 
+         unit_classification = str_squish(unit_classification),
+         unit_name = str_replace_all(unit_name, "\r\n" ," "), 
+         unit_name = str_squish(unit_name))
+
+bot_owned |>
+  anti_join(boc, join_by(unit_name)) |>
+  view()
+boc |>
+  anti_join(bot_owned, join_by(unit_name)) |>
+  view()
+  
+
+jr |>
+  distinct(site_name, lease_number) |>
+  add_count(site_name, sort = TRUE) |>
+  filter(n >1) |>
+  select(site_name, lease_number) |>
+  inner_join(bot_owned, join_by('site_name' == 'unit_name'))
 ```
 
 Joint owned are parks owned by a single owner that is not the BOT or parks with multiple owners. It does not include trails or walkways
+
 ```{r joint_owned}
 joint_owned <- jr |>
   filter(grepl(',', owner) | owner_count > 1 & !classification %in% c('Trail', 'Walkway')) |>
     select(site_name, inception, district, total_acreage, owner, drp_interest, expiration_date, classification, public_access_status) 
 ```
-
