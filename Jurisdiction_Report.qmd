@@ -5,7 +5,7 @@ editor: visual
 editor_options: 
   chunk_output_type: console
 ---
-
+#### Setup
 ```{r setup}
 library(tidyverse)
 library(readxl)
@@ -55,7 +55,10 @@ jr |>
   count(owner_count)
 ```
 
-This "BOT_Owned State Parks" table is nearly identical to the real one. The only exceptions are Cedar Key Scrub State Reserve being in the real one despite multiple owners, and San Pedro Underwater Archaeological Preserve State Park not being in the real one for unknown reasons
+#### BOT Owned State Parks
+
+This "BOT_Owned State Parks" table is nearly identical to the real one. The only exceptions are Cedar Key Scrub State Reserve being in the real one despite having multiple owners, and San Pedro Underwater Archaeological Preserve State Park not being in the real one for unknown reasons
+
 ```{r bot_owned}
 # sites that are only owned by BTIITF, no multi-owner
 bot_owned <- jr |>
@@ -92,10 +95,107 @@ jr |>
   inner_join(bot_owned, join_by('site_name' == 'unit_name'))
 ```
 
+#### Joint Ownership State Parks
+
 Joint owned are parks owned by a single owner that is not the BOT or parks with multiple owners. It does not include trails or walkways
 
 ```{r joint_owned}
 joint_owned <- jr |>
   filter(grepl(',', owner) | owner_count > 1 & !classification %in% c('Trail', 'Walkway')) |>
-    select(site_name, inception, district, total_acreage, owner, drp_interest, expiration_date, classification, public_access_status) 
+    select(site_name, inception, district, county, 'Lease Acreage' = total_acreage, owner, drp_interest, lease_number, expiration_date, classification, public_access_status) |>
+  group_by(site_name) |>
+  mutate(park_acreage = sum(`Lease Acreage`))
 ```
+
+```{r check_identical}
+real_jo <- read_excel("Jurisdiction Report Master Spreadsheet.xlsx", sheet = 3) |>
+  janitor::clean_names() |>
+  mutate(unit_name = str_replace_all(unit_name, "\r\n" ," "), 
+         unit_name = str_squish(unit_name))
+
+unique(joint_owned$site_name)
+unique(real_jo$unit_name)[!unique(real_jo$unit_name) %in% unique(joint_owned$site_name)]
+
+```
+
+#### State Greenways and Trails
+
+#### Combined
+
+#### Glossary
+
+Site Name - The official designation of a state park unit or the name by which the unit is officially called
+
+Inception - The data on which the parcel that constitutes the initial area of the unit was acquired by the State of Florida
+
+District - The Division of Recreation and Parks administrative region in which the unit is located
+
+County - The Florida county in which the unit is located
+
+Acreage - Area of the unit in acres
+
+Owner - The entity that has fee simple title to the unit or a portion of the unit
+
+-   BTIITF - Board of Trustees of the Internal Improvement Trust Fund
+
+-   COUNTY - Specific Florida county with fee title interest in the unit
+
+-   FDOT - Florida Department of Transportation FIND - Florida Inland Navigation District
+
+-   PRIVATE - Non governmental organization or private individual with fee title interest in the unit
+
+-   SFWMD - South Florida Water Management District
+
+-   SJRWMD - St. Johns River Water Management District
+
+-   SRWMD - Suwannee River Water Management District
+
+-   SWFWMD - Southwest Florida Water Management District
+
+-   USACOE - United State Army Corps of Engineers
+
+-   USCG - United States Coast Guard
+
+-   USDA - United States Department of Agriculture
+
+-   USFWS - United States Fish and Wildlife Service
+
+DRP Interest - The legal authority under which the Division of Recreation and Parks manages the unit
+
+-   Lease - Legal instrument issued by the land owner to the land manager outlining statutory requirements for use of BTIITF-owned lands
+
+-   Management Agreement (MA) - An agreement between the owner and DRP to establish legal authority to manage the property as a state park unit
+
+-   Dedication - The conveyance of private land in fee simple for public use
+
+-   Letter of Consent (LOC) - Approval from specific permitting District for underwater activity
+
+-   Submerged Lands Lease (SLL) - Legal instrument issued by owner to manager outlining statutory requirements for use of BTIITF-owned submerged lands
+
+Expiration Date - The date the Division of Recreation and Parks leasehold interest in the unit expires
+
+Classification - The official classification of the unit based on the purpose for which the property was acquired or the function it is supposed to serve
+
+Public Access Status - The condition of the unit relative to public access
+
+-   Open Fee Required - Available for public use and fee is required at an entrance station or honor box
+
+-   Open No Fee Required - Available for public use and no fee is required
+
+-   Open Prior Arrangement Required - Limited public use is permitted after making prior arrangements with appropriate staff
+
+#### Summary
+Number of parks and total acreage by district and in total
+```{r}
+jr |>
+  group_by(district) |>
+  mutate(parks = n_distinct(site_name),
+         acreage = sum(total_acreage)) |>
+  select(district, parks, acreage) |>
+  distinct() |>
+  arrange(-desc(district)) |>
+  janitor::adorn_totals()
+  view()
+```
+
+
