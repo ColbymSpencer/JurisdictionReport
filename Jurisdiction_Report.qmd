@@ -9,11 +9,30 @@ editor_options:
 #### Setup
 
 ```{r setup}
+# load packages
 library(tidyverse)
 library(readxl)
-jr_raw <- read_excel("Jurisdiction Report Master Spreadsheet.xlsx", sheet = 1, range = 'A1:O222')
 
-#park inception
+# custom function(s)
+check_identical <- function(df, sheet_num) {
+  real <- read_excel("Jurisdiction Report Master Spreadsheet.xlsx", sheet = sheet_num) |>
+  janitor::clean_names() |>
+  mutate(unit_name = str_replace_all(unit_name, "\r\n" ," "), 
+         unit_name = str_squish(unit_name)) |>
+  filter(owner != 'Total') |>
+  fill(everything()) |>
+  rename('site_name' = unit_name)
+  
+  
+  missing_records <- anti_join(real, df, join_by(site_name, lease_number))
+  view(missing_records)
+  
+  extra_records <- anti_join(df, real, join_by(site_name, lease_number))
+  view(extra_records)
+}
+
+# get raw data
+jr_raw <- read_excel("Jurisdiction Report Master Spreadsheet.xlsx", sheet = 1, range = 'A1:O222')
 park_inception_raw <- read_excel("Jurisdiction Report Master Spreadsheet.xlsx", sheet = 5) 
 
 ```
@@ -145,7 +164,7 @@ unique(sgt$site_name)
 unique(real$site_name)[!unique(real$site_name) %in% unique(sgt$site_name)]
 ```
 #### Combined
-```{r}
+```{r combined}
 combined <- jr |>
   group_by(site_name) |>
   rename('lease_acreage' = total_acreage) |>
@@ -153,24 +172,7 @@ combined <- jr |>
 ```
 
 ```{r check_identical}
-real <- read_excel("Jurisdiction Report Master Spreadsheet.xlsx", sheet = 5) |>
-  janitor::clean_names() |>
-  mutate(unit_name = str_replace_all(unit_name, "\r\n" ," "), 
-         unit_name = str_squish(unit_name)) |>
-  filter(owner != 'Total') |>
-  fill(everything()) |>
-  rename('site_name' = unit_name)
-
-# parks in 'real' not in 'combined'
-unique(real$site_name)[!unique(real$site_name) %in% unique(combined$site_name)]
-
-# records in 'real' not in 'combined'
-real |>
-  anti_join(combined, join_by(site_name, lease_number))
-
-# records in 'combined' not in 'real'
-combined |>
-  anti_join(real, join_by(site_name, lease_number))
+check_identical(combined, 5)
 ```
 
 #### Glossary
@@ -239,7 +241,7 @@ Public Access Status - The condition of the unit relative to public access
 
 Number of parks and total acreage by district and in total
 
-```{r}
+```{r summary}
 jr |>
   group_by(district) |>
   mutate(parks = n_distinct(site_name),
