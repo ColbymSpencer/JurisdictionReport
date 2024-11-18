@@ -119,8 +119,55 @@ unique(real_jo$unit_name)[!unique(real_jo$unit_name) %in% unique(joint_owned$sit
 ```
 
 #### State Greenways and Trails
+```{r state_greenways_trails}
+sgt <- jr |>
+  filter(classification %in% c('Trail', 'Greenway')) |>
+  rename('lease_acreage' = total_acreage) |>
+  group_by(site_name) |>
+  mutate(total = sum(lease_acreage))
+  # rename('unit_name' = site_name)
+```
 
+```{r check_identical}
+real <- read_excel("Jurisdiction Report Master Spreadsheet.xlsx", sheet = 4) |>
+  janitor::clean_names() |>
+  mutate(unit_name = str_replace_all(unit_name, "\r\n" ," "), 
+         unit_name = str_squish(unit_name)) |>
+  fill(everything()) |>
+  rename('site_name' = unit_name) |>
+  filter(owner != 'Total')
+
+unique(sgt$site_name)
+unique(real$site_name)[!unique(real$site_name) %in% unique(sgt$site_name)]
+```
 #### Combined
+```{r}
+combined <- jr |>
+  group_by(site_name) |>
+  rename('lease_acreage' = total_acreage) |>
+  mutate(park_acreage = sum(lease_acreage))
+```
+
+```{r check_identical}
+real <- read_excel("Jurisdiction Report Master Spreadsheet.xlsx", sheet = 5) |>
+  janitor::clean_names() |>
+  mutate(unit_name = str_replace_all(unit_name, "\r\n" ," "), 
+         unit_name = str_squish(unit_name)) |>
+  filter(owner != 'Total') |>
+  fill(everything()) |>
+  rename('site_name' = unit_name)
+
+# parks in 'real' not in 'combined'
+unique(real$site_name)[!unique(real$site_name) %in% unique(combined$site_name)]
+
+# records in 'real' not in 'combined'
+real |>
+  anti_join(combined, join_by(site_name, lease_number))
+
+# records in 'combined' not in 'real'
+combined |>
+  anti_join(real, join_by(site_name, lease_number))
+```
 
 #### Glossary
 
