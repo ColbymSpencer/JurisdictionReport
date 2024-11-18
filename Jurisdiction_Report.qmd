@@ -5,7 +5,9 @@ editor: visual
 editor_options: 
   chunk_output_type: console
 ---
+
 #### Setup
+
 ```{r setup}
 library(tidyverse)
 library(readxl)
@@ -79,14 +81,16 @@ boc <- read_excel("Jurisdiction Report Master Spreadsheet.xlsx", sheet = 2) |>
          unit_name = str_replace_all(unit_name, "\r\n" ," "), 
          unit_name = str_squish(unit_name))
 
+# parks in generated df that are not in real spreadsheet
 bot_owned |>
   anti_join(boc, join_by(unit_name)) |>
   view()
+# parks in real spreadsheet that are not in generated df
 boc |>
   anti_join(bot_owned, join_by(unit_name)) |>
   view()
   
-
+# no non-distinct combinations of 'site_name' (parks) and 'lease_number'
 jr |>
   distinct(site_name, lease_number) |>
   add_count(site_name, sort = TRUE) |>
@@ -232,7 +236,9 @@ Public Access Status - The condition of the unit relative to public access
 -   Open Prior Arrangement Required - Limited public use is permitted after making prior arrangements with appropriate staff
 
 #### Summary
+
 Number of parks and total acreage by district and in total
+
 ```{r}
 jr |>
   group_by(district) |>
@@ -241,8 +247,6 @@ jr |>
   select(district, parks, acreage) |>
   distinct() |>
   arrange(-desc(district)) |>
-  janitor::adorn_totals()
+  janitor::adorn_totals() |>
   view()
 ```
-
-
